@@ -1,0 +1,6 @@
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+
+PS1="\[\033[34;1m[\]\W ]$ \[\033[39;0m\]"

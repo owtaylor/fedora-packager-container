@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# Escape entirely from the Flatpak sandbox
+xdg_runtime_dir=${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}
+if [ -e $xdg_runtime_dir/flatpak-info ] ; then
+    app=$HOME/.local/share/flatpak/app/org.fedoraproject.PackagerContainer/current/active/files
+    exec /app/libexec/fedora-packager-container/run-host \
+         --pty \
+         --setenv datadir $app/share \
+         $app/bin/fedpkg-c \
+         $@
+fi
+
+podman="sudo podman"
+
+name=fedora-packager-container
+datadir="${datadir:-@DATADIR@}"
+pkgdatadir="$datadir/$name"
+
+xdg_config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+pkgconfigdir="$xdg_config_home/$name"
+
+build() {
+    sudo buildah bud -t $name $pkgdatadir/image
+}
+
+prompt() {
+    abspath=false
+    if [ "$1" = "--abspath" ] ; then
+        abspath=true
+        shift
+    fi
+
+    while true ; do
+        newval="${!2}"
+        read -e -p "$(echo -e '\001\033[1m\002')""$1""$(echo -e '\001\033[0m\002 ')""[$newval] " ans
+        if [ "$ans" != "" ] ; then
+            newval="$ans"
+        fi
+
+        ( ! $abspath || expr $newval : / > /dev/null ) && break
+        echo "Must be an absolute path"
+    done
+
+    declare -g "$2=$newval"
+}
+
+configure() {
+    fasusername="${fasusername:-$USER}"
+    gitcheckoutdir="${gitcheckoutdir:-$HOME/fedora}"
+    prompt "Fedora Accounts System username" fasusername
+    prompt --abspath "Location of Fedora git checkouts" gitcheckoutdir
+    gitcheckoutdir="${gitcheckoutdir%/}"
+
+    [ -d pkgconfigdir ] || mkdir -p $pkgconfigdir
+    cat > $pkgconfigdir/config.sh <<EOF
+fasusername="$fasusername"
+gitcheckoutdir="$gitcheckoutdir"
+EOF
+
+    if [ \! -d "$gitcheckoutdir" ] ; then
+        echo "Creating $gitcheckoutdir"
+        mkdir -p "$gitcheckoutdir"
+    fi
+}
+
+destroy() {
+    $podman rm -f $name
+}
+
+shell() {
+    # doesn't work - podman bug
+    # current_image=$($podman inspect -t container --format="{{.Image}}" $name 2>/dev/null)
+
+    current_image=$($podman inspect -t image --format="{{.Id}}" localhost/$name)
+    container_image=$($podman inspect -t container $name 2>/dev/null | grep '"Image":' | head -n 1 | sed 's|.*"\(.*\)".*|\1|')
+
+    if [[ "$container_image" != "" && "$container_image" != "$current_image" ]] ; then
+        $podman rm -f $name
+        container_image=
+    fi
+
+    if [[ "$container_image" != "" ]] ; then
+        running=$($podman inspect -t container $name --format="{{.State.Running}}")
+        if ! $running ; then
+            $podman start $name
+        fi
+    else
+        auth_socket=/run/user/$(id -u)/keyring/ssh
+        $podman run --name $name -d -v $HOME:$HOME \
+                 -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
+                --security-opt=seccomp=unconfined \
+                --security-opt=label=disable \
+                --cap-add=SYS_CHROOT \
+                --cap-add=SYS_ADMIN \
+                -w $gitcheckoutdir localhost/$name \
+                sleep 1000d
+        $podman exec $name /sbin/groupadd -g $(id -g) $(id -ng)
+        $podman exec $name /sbin/useradd -g $(id -u) -G mock,wheel $(id -nu)
+        mountdir=$(sudo podman mount $name)
+        sudo sh -c "cat >> $mountdir/etc/module-build-service/config.py" <<EOF
+LocalBuildConfiguration.DISTGITS = {
+    'git://pkgs.fedoraproject.org': ('fedpkg clone --anonymous {}',
+                                     'fedpkg --release module sources'),
+    'file://$gitcheckoutdir/rpms/': ('git clone file://$gitcheckoutdir/rpms/{0}; git -C {0} remote set-url origin ssh://$fasusername@pkgs.fedoraproject.org/rpms/{0}',
+                                     'fedpkg --release module sources'),
+    'file://$gitcheckoutdir/': ('git clone file://$gitcheckoutdir/{0}; git -C {0} remote set-url origin ssh://$fasusername@pkgs.fedoraproject.org/rpms/{0}',
+                                'fedpkg --release module sources'),
+}
+EOF
+    fi
+
+    $podman exec -u $(id -u) -t $name /bin/bash -l -c 'exec $0 $@' bash --rcfile /usr/share/$name/bashrc
+}
+
+if [ -e $pkgconfigdir/config.sh ] ; then
+    . $pkgconfigdir/config.sh
+fi
+
+if [ "$gitcheckoutdir" = "" -o "$fasusername" = "" ] ; then
+    configure
+    . $pkgconfigdir/config.sh
+fi
+
+case $1 in
+    build)
+        build
+        ;;
+    configure)
+        configure
+        ;;
+    destroy)
+        destroy
+        ;;
+    shell)
+        shell
+        ;;
+    *)
+        echo "Usage: fepdkg-c [shell|build|configure|create|destroy]"
+        exit 1
+        ;;
+esac

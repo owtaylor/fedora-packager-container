@@ -1,0 +1,30 @@
+{
+    "app-id": "org.fedoraproject.PackagerContainer",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "18.08",
+    "sdk": "org.freedesktop.Sdk",
+    "command": "fedpkg-c",
+    "tags": ["devel"],
+    "finish-args": [
+        /* Used for HostCommand */
+        "--talk-name=org.freedesktop.Flatpak",
+        /* Network access */
+        "--share=network",
+        /* We want full fs access */
+        "--filesystem=host"
+    ],
+    "build-options": {
+        "cflags": "-O2 -g"
+    },
+    "modules": [
+        {
+            "name": "fedora-packager-container",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/owtaylor/fedora-packager-container.git"
+                }
+            ]
+        }
+    ]
+}
