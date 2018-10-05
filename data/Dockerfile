@@ -18,6 +18,7 @@ RUN cat /etc/module-build-service/mbs-mock.cfg >> /etc/module-build-service/mock
     rm /etc/module-build-service/mbs-mock.cfg
 
 RUN sed -i "s@NUM_CONCURRENT_BUILDS = 5@NUM_CONCURRENT_BUILDS = 1@" /etc/module-build-service/config.py
+RUN sed -i "s@RPMS_ALLOW_REPOSITORY = False@RPMS_ALLOW_REPOSITORY = True@" /etc/module-build-service/config.py
 
 RUN echo "config_opts['use_nspawn'] = False" >> /usr/lib/python3.6/site-packages/flatpak_module_tools/templates/mock.cfg.j2
 
