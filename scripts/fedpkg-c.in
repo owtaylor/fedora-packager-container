@@ -68,7 +68,7 @@ destroy() {
     $podman rm -f $name
 }
 
-shell() {
+ensure_started() {
     # doesn't work - podman bug
     # current_image=$($podman inspect -t container --format="{{.Image}}" $name 2>/dev/null)
 
@@ -109,6 +109,16 @@ LocalBuildConfiguration.DISTGITS = {
 }
 EOF
     fi
+}
+
+rootshell() {
+    ensure_started
+
+    $podman exec -t $name /bin/bash -l
+}
+
+shell() {
+    ensure_started
 
     $podman exec -u $(id -u) -t $name /bin/bash -l -c 'exec $0 $@' bash --rcfile /usr/share/$name/bashrc
 }
@@ -132,11 +142,17 @@ case $1 in
     destroy)
         destroy
         ;;
+    root)
+        shell
+        ;;
+    rootshell)
+        rootshell
+        ;;
     shell)
         shell
         ;;
     *)
-        echo "Usage: fepdkg-c [shell|build|configure|create|destroy]"
+        echo "Usage: fepdkg-c [shell|build|configure|create|destroy|rootshell]"
         exit 1
         ;;
 esac
