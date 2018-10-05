@@ -8,6 +8,7 @@ RUN dnf -y update && \
         flatpak-module-tools \
         less \
         python3-koji-containerbuild-cli \
+        python3-service-identity \
         sudo
 
 COPY bashrc /usr/share/fedora-packager-container/
