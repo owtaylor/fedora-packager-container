@@ -9,6 +9,7 @@ RUN dnf -y update && \
         less \
         python3-koji-containerbuild-cli \
         python3-service-identity \
+        python3-pungi \
         sudo
 
 COPY bashrc /usr/share/fedora-packager-container/
