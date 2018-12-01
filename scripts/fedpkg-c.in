@@ -142,9 +142,6 @@ case $1 in
     destroy)
         destroy
         ;;
-    root)
-        shell
-        ;;
     rootshell)
         rootshell
         ;;
@@ -152,7 +149,7 @@ case $1 in
         shell
         ;;
     *)
-        echo "Usage: fepdkg-c [shell|build|configure|create|destroy|rootshell]"
+        echo "Usage: fepdkg-c [shell|build|configure|destroy|rootshell]"
         exit 1
         ;;
 esac
