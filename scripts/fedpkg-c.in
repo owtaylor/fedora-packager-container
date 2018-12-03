@@ -100,7 +100,7 @@ ensure_started() {
         mountdir=$(sudo podman mount $name)
         sudo sh -c "cat >> $mountdir/etc/module-build-service/config.py" <<EOF
 LocalBuildConfiguration.DISTGITS = {
-    'git://pkgs.fedoraproject.org': ('fedpkg clone --anonymous {}',
+    'https://src.fedoraproject.org': ('fedpkg clone --anonymous {}',
                                      'fedpkg --release module sources'),
     'file://$gitcheckoutdir/rpms/': ('git clone file://$gitcheckoutdir/rpms/{0}; git -C {0} remote set-url origin ssh://$fasusername@pkgs.fedoraproject.org/rpms/{0}',
                                      'fedpkg --release module sources'),
