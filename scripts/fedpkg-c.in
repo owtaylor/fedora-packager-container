@@ -100,8 +100,10 @@ ensure_started() {
         fi
 
         auth_socket=/run/user/$(id -u)/keyring/ssh
+        session_bus_socket=/run/user/$(id -u)/bus
         $podman run --name $name -d -v $HOME:$HOME \
-                 -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
+                -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
+                -v $session_bus_socket:$session_bus_socket -e DBUS_SESSION_BUS_ADDRESS=unix:path=$session_bus_socket \
                 --security-opt=seccomp=unconfined \
                 --security-opt=label=disable \
                 --cap-add=SYS_CHROOT \
