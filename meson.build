@@ -8,8 +8,12 @@ executable('run-host',
            install : true,
            install_dir : join_paths(get_option('libexecdir'), 'fedora-packager-container'))
 
-install_data('data/Dockerfile', 'data/bashrc', 'data/mbs-mock.cfg',
-             install_dir : join_paths(get_option('datadir'), 'fedora-packager-container', 'image'),
+imagedir=join_paths(get_option('datadir'), 'fedora-packager-container', 'image')
+install_data('data/Dockerfile', 'data/bashrc',  'data/mbs-mock.cfg',
+             install_dir : imagedir,
+             install_mode : 'rw-r--r--')
+install_data('data/flatpak-host.sh',
+             install_dir : imagedir,
              install_mode : 'rwxr-xr-x')
 
 cdata = configuration_data()

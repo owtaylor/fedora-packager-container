@@ -6,6 +6,7 @@ RUN dnf -y update && \
         fedmod \
         fedpkg \
         flatpak-module-tools \
+        flatpak-xdg-utils \
         less \
         python3-koji-containerbuild-cli \
         python3-service-identity \
@@ -13,6 +14,9 @@ RUN dnf -y update && \
         sudo
 
 COPY bashrc /usr/share/fedora-packager-container/
+
+RUN mv /usr/bin/flatpak /usr/bin/flatpak.real
+COPY flatpak-host.sh /usr/bin/flatpak
 
 COPY mbs-mock.cfg /etc/module-build-service/
 RUN cat /etc/module-build-service/mbs-mock.cfg >> /etc/module-build-service/mock.cfg && \
