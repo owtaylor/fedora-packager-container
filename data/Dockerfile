@@ -1,4 +1,4 @@
-FROM fedora:28
+FROM fedora:29
 
 RUN dnf -y update && \
     dnf -y --enablerepo=updates-testing install \
@@ -22,6 +22,6 @@ RUN sed -i "s@NUM_CONCURRENT_BUILDS = 5@NUM_CONCURRENT_BUILDS = 1@" /etc/module-
 RUN sed -i "s@RPMS_ALLOW_REPOSITORY = False@RPMS_ALLOW_REPOSITORY = True@" /etc/module-build-service/config.py
 RUN sed -i "s@git://pkgs.fedoraproject.org@https://src.fedoraproject.org@" /etc/module-build-service/config.py
 
-RUN echo "config_opts['use_nspawn'] = False" >> /usr/lib/python3.6/site-packages/flatpak_module_tools/templates/mock.cfg.j2
+RUN echo "config_opts['use_nspawn'] = False" >> /usr/lib/python3.7/site-packages/flatpak_module_tools/templates/mock.cfg.j2
 
 RUN echo /home/otaylor/Source/fedpkg/conf/etc/rpkg/fedpkg.conf
