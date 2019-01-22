@@ -92,6 +92,13 @@ ensure_started() {
             fix_mount_options
         fi
     else
+        # When the host has a /home => /var/home symlink, we set up the container
+        if [[ "$(readlink /home)" == var/home ]] ; then
+            need_home_link=true
+        else
+            need_home_link=false
+        fi
+
         auth_socket=/run/user/$(id -u)/keyring/ssh
         $podman run --name $name -d -v $HOME:$HOME \
                  -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
@@ -101,8 +108,14 @@ ensure_started() {
                 --cap-add=SYS_ADMIN \
                 -w $gitcheckoutdir localhost/$name \
                 sleep 1000d
+
+        if $need_home_link ; then
+            $podman exec $name \
+                sh -c 'rmdir /home && ln -s var/home /home'
+        fi
+
         $podman exec $name /sbin/groupadd -g $(id -g) $(id -ng)
-        $podman exec $name /sbin/useradd -g $(id -u) -G mock,wheel $(id -nu)
+        $podman exec $name /sbin/useradd --home-dir=$HOME --no-create-home -g $(id -u) -G mock,wheel $(id -nu)
         mountdir=$(sudo podman mount $name)
         sudo sh -c "cat >> $mountdir/etc/module-build-service/config.py" <<EOF
 LocalBuildConfiguration.DISTGITS = {
