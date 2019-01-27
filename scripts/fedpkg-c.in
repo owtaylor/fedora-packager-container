@@ -75,6 +75,15 @@ fix_mount_options() {
     $podman exec $name mount -o remount,dev /
 }
 
+# podman inserts bind mounts for resolv.conf, etc. We want these files
+# to be symlinks to a directory maintained by flatpak-session-helper,
+# so we need to unmount the bind mounts.
+FIX_BIND_MOUNTS=\
+'for f in localtime resolv.conf host.conf hosts timezone ; do '\
+'   umount /etc/$f 2>/dev/null || : ; '\
+'   ln -sf /run/host/monitor/$f /etc/$f ;'\
+'done'
+
 ensure_started() {
     # doesn't work - podman bug
     # current_image=$($podman inspect -t container --format="{{.Image}}" $name 2>/dev/null)
@@ -90,6 +99,11 @@ ensure_started() {
     if [[ "$container_image" != "" ]] ; then
         running=$($podman inspect -t container $name --format="{{.State.Running}}")
         if ! $running ; then
+            # Make sure that flatpak-session-helper is running
+            gdbus call \
+                  -e -d org.freedesktop.Flatpak -o / -m org.freedesktop.DBus.Peer.Ping 1>/dev/null 2>/dev/null || \
+                (echo "Can't contact flatpak-session-helper" 1>&2 && exit 1)
+
             $podman start $name
             fix_mount_options
         fi
@@ -101,17 +115,37 @@ ensure_started() {
             need_home_link=false
         fi
 
+        # Call flatpak-session-helper to get the path to the directory where flatpak
+        # maintains updated versions of resolv.comf, etc. (This path is embedded into
+        # the container, so it needs to be reasonably stable.)
+        res=$(gdbus call \
+                  -e -d org.freedesktop.Flatpak \
+                  -o /org/freedesktop/Flatpak/SessionHelper \
+                  -m org.freedesktop.Flatpak.SessionHelper.RequestSession || :)
+        if [[ $res == "" ]] ; then
+            echo "Can't contact flatpak-session-helper" 1>&2
+            exit 1
+        fi
+        if [[ ! $res =~ "'path': <'"([^\']+) ]] ; then
+            echo "Couldn't parse output from flatpak-session-helper" 1>&2
+            exit 1
+        fi
+        monitor_path=${BASH_REMATCH[1]}
+
         auth_socket=/run/user/$(id -u)/keyring/ssh
         session_bus_socket=/run/user/$(id -u)/bus
         $podman run --name $name -d -v $HOME:$HOME \
                 -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
                 -v $session_bus_socket:$session_bus_socket -e DBUS_SESSION_BUS_ADDRESS=unix:path=$session_bus_socket \
+                -v $monitor_path:/run/host/monitor \
                 --security-opt=seccomp=unconfined \
                 --security-opt=label=disable \
                 --cap-add=SYS_CHROOT \
                 --cap-add=SYS_ADMIN \
                 -w $gitcheckoutdir localhost/$name \
                 sleep 1000d
+
+        $podman exec $name sh -c "$FIX_BIND_MOUNTS"
 
         if $need_home_link ; then
             $podman exec $name \
