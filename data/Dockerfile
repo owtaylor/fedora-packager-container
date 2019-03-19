@@ -2,6 +2,7 @@ FROM fedora:29
 
 RUN dnf -y update && \
     dnf -y --enablerepo=updates-testing install \
+        bash-completion \
         coreutils-common \
         fedmod \
         fedpkg \
