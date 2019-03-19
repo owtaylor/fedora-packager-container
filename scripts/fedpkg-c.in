@@ -138,10 +138,8 @@ ensure_started() {
                 -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
                 -v $session_bus_socket:$session_bus_socket -e DBUS_SESSION_BUS_ADDRESS=unix:path=$session_bus_socket \
                 -v $monitor_path:/run/host/monitor \
-                --security-opt=seccomp=unconfined \
                 --security-opt=label=disable \
-                --cap-add=SYS_CHROOT \
-                --cap-add=SYS_ADMIN \
+                --privileged \
                 -w $gitcheckoutdir localhost/$name \
                 sleep 1000d
 
@@ -154,6 +152,9 @@ ensure_started() {
 
         $podman exec $name /sbin/groupadd -g $(id -g) $(id -ng)
         $podman exec $name /sbin/useradd --home-dir=$HOME --no-create-home -g $(id -u) -G mock,wheel $(id -nu)
+        $podman exec $name /usr/bin/passwd -d $(id -nu)
+        $podman exec $name /usr/bin/passwd -d root
+
         mountdir=$(sudo podman mount $name)
         sudo sh -c "cat >> $mountdir/etc/module-build-service/config.py" <<EOF
 LocalBuildConfiguration.DISTGITS = {
@@ -178,7 +179,7 @@ rootshell() {
 shell() {
     ensure_started
 
-    $podman exec -u $(id -u) -t $name /bin/bash -l -c 'exec $0 $@' bash --rcfile /usr/share/$name/bashrc
+    $podman exec -u $(id -u) -t $name capsh --caps="" -- -l -c 'exec $0 $@' bash --rcfile /usr/share/$name/bashrc
 }
 
 if [ -e $pkgconfigdir/config.sh ] ; then
