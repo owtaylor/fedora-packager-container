@@ -138,6 +138,7 @@ ensure_started() {
                 -v $auth_socket:$auth_socket -e SSH_AUTH_SOCK=$auth_socket \
                 -v $session_bus_socket:$session_bus_socket -e DBUS_SESSION_BUS_ADDRESS=unix:path=$session_bus_socket \
                 -v $monitor_path:/run/host/monitor \
+                --net=host \
                 --security-opt=label=disable \
                 --privileged \
                 -w $gitcheckoutdir localhost/$name \
