@@ -111,6 +111,16 @@ ensure_started() {
         # When the host has a /home => /var/home symlink, we set up the container
         if [[ "$(readlink /home)" == var/home ]] ; then
             need_home_link=true
+
+            case $HOME in
+                /var/home*)
+                    ;;
+                *)
+                    echo '$HOME' "is $HOME, but /home is a symlink to /var/home" 1>&2
+                    echo 'Please adjust /etc/passwd so that $HOME is set correctly'  1>&2
+                    exit 1
+                    ;;
+            esac
         else
             need_home_link=false
         fi
